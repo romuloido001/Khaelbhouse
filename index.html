@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boarding House Billing & Receipt Portal</title>
+<style>
+:root{--green:#176b45;--green2:#e8f4ed;--ink:#17251d;--muted:#68776e;--line:#dce6df;--bg:#f4f7f5;--white:#fff;--red:#b42318}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Arial,sans-serif}
+header{background:linear-gradient(120deg,#124c34,#238456);color:#fff;padding:22px max(18px,calc((100% - 1180px)/2));}
+header h1{margin:0;font-size:clamp(21px,3vw,29px)}header p{margin:5px 0 0;color:#d8eee1}
+.wrap{max-width:1180px;margin:22px auto;padding:0 16px}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:16px}
+.tabs{display:flex;gap:7px;flex-wrap:wrap}.tab,button{border:0;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer}.tab{background:#e6eee8;color:#355342}.tab.active,button.primary{background:var(--green);color:white}button.secondary{background:#e9f1ec;color:#244d37}button.danger{background:#fff0ef;color:var(--red)}button:disabled{opacity:.5;cursor:not-allowed}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:18px}.metric,.panel{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:17px;box-shadow:0 2px 8px #163b2410}.metric small{color:var(--muted)}.metric strong{display:block;font-size:25px;margin-top:5px;color:var(--green)}
+.panel h2{font-size:19px;margin:0 0 15px}.panel h3{font-size:16px;margin:18px 0 9px}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.formgrid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+label{display:block;font-size:13px;font-weight:700;color:#405247;margin-bottom:5px}input,select,textarea{width:100%;padding:11px;border:1px solid #cbd8ce;border-radius:8px;background:#fff;font:inherit;color:var(--ink)}input:focus,select:focus{outline:2px solid #9ac9ac;border-color:var(--green)}
+.field{min-width:0}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}.hidden{display:none!important}.hint{color:var(--muted);font-size:13px}.status{padding:10px 12px;border-radius:8px;margin:12px 0;background:#edf5ef;color:#285a3c}.status.error{background:#fff0ef;color:#9c2119}
+table{width:100%;border-collapse:collapse;min-width:650px}th,td{text-align:left;padding:11px 9px;border-bottom:1px solid var(--line);font-size:14px}th{color:#526359;background:#f7faf8} .tablewrap{overflow:auto}
+.amount{font-variant-numeric:tabular-nums;font-weight:700}.pill{display:inline-block;padding:3px 8px;border-radius:30px;background:#e8f4ed;color:#176b45;font-size:12px;font-weight:700}
+.receipt{max-width:700px;margin:auto;border:1px dashed #aab9ae;padding:25px;background:white}.receipt h2,.receipt p{text-align:center}.receipt h2{margin:0}.receipt .rline{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #e4e9e5}.receipt .total{font-size:20px;font-weight:bold}
+footer{text-align:center;color:var(--muted);padding:25px;font-size:12px}
+@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}.formgrid.three{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.grid{grid-template-columns:1fr 1fr}.formgrid,.formgrid.three{grid-template-columns:1fr}.wrap{margin:14px auto}.metric{padding:12px}.metric strong{font-size:21px}}
+@media print{body{background:#fff}.no-print,header,.toolbar,footer{display:none!important}.wrap{margin:0;padding:0}.receipt{border:0;max-width:none}.receipt button{display:none}}
+</style>
+</head>
+<body>
+<header><h1 id="propertyTitle">Boarding House Billing & Receipt Portal</h1><p>Monthly utilities, tenant billing, payments and receipts</p></header>
+<div class="wrap">
+  <div class="toolbar no-print">
+    <div class="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="tenants">Tenants</button>
+      <button class="tab" data-tab="billing">Create Bill</button>
+      <button class="tab" data-tab="records">Billing Records</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </div>
+    <span id="connection" class="pill">Not connected</span>
+  </div>
+
+  <section id="dashboard" class="page">
+    <div class="grid">
+      <div class="metric"><small>Active tenants</small><strong id="mTenants">0</strong></div>
+      <div class="metric"><small>Bills generated</small><strong id="mBills">0</strong></div>
+      <div class="metric"><small>Total billed</small><strong id="mBilled">₱0.00</strong></div>
+      <div class="metric"><small>Total collected</small><strong id="mPaid">₱0.00</strong></div>
+    </div>
+    <div class="panel"><h2>Recent billing activity</h2><div id="recent" class="hint">Connect your Google Sheet and load records.</div></div>
+  </section>
+
+  <section id="tenants" class="page hidden">
+    <div class="panel">
+      <h2>Tenant Information</h2>
+      <form id="tenantForm">
+        <input type="hidden" id="tenantId">
+        <div class="formgrid three">
+          <div class="field"><label>Tenant full name *</label><input id="tenantName" required></div>
+          <div class="field"><label>Room number *</label><input id="room" required></div>
+          <div class="field"><label>Monthly rent (₱)</label><input id="rent" type="number" min="0" step=".01" value="0"></div>
+          <div class="field"><label>Wi-Fi monthly fee (₱)</label><input id="wifiFee" type="number" min="0" step=".01" value="0"></div>
+          <div class="field"><label>Contact number</label><input id="phone" type="tel"></div>
+          <div class="field"><label>Status</label><select id="tenantStatus"><option>Active</option><option>Inactive</option></select></div>
+        </div>
+        <div class="actions"><button class="primary" type="submit">Save tenant</button><button class="secondary" type="button" id="clearTenant">Clear</button></div>
+      </form>
+    </div>
+    <div class="panel" style="margin-top:16px"><h2>Tenant List</h2><div id="tenantTable" class="hint">No tenant records loaded.</div></div>
+  </section>
+
+  <section id="billing" class="page hidden">
+    <div class="panel">
+      <h2>Generate Monthly Bill</h2>
+      <form id="billForm">
+        <div class="formgrid three">
+          <div class="field"><label>Tenant *</label><select id="billTenant" required><option value="">Select tenant</option></select></div>
+          <div class="field"><label>Billing period *</label><input id="period" type="month" required></div>
+          <div class="field"><label>Due date</label><input id="dueDate" type="date"></div>
+        </div>
+        <h3>Water meter reading</h3>
+        <div class="formgrid three">
+          <div class="field"><label>Previous reading (m³)</label><input id="waterPrev" type="number" min="0" step=".01" value="0"></div>
+          <div class="field"><label>Current reading (m³)</label><input id="waterNow" type="number" min="0" step=".01" value="0"></div>
+          <div class="field"><label>Rate per m³ (₱)</label><input id="waterRate" type="number" min="0" step=".01" value="0"></div>
+        </div>
+        <h3>Electricity meter reading</h3>
+        <div class="formgrid three">
+          <div class="field"><label>Previous reading (kWh)</label><input id="elecPrev" type="number" min="0" step=".01" value="0"></div>
+          <div class="field"><label>Current reading (kWh)</label><input id="elecNow" type="number" min="0" step=".01" value="0"></div>
+          <div class="field"><label>Rate per kWh (₱)</label><input id="elecRate" type="number" min="0" step=".01" value="0"></div>
+        </div>
+        <h3>Other charges</h3>
+        <div class="formgrid three">
+          <div class="field"><label>Wi-Fi fee (₱)</label><input id="billWifi" type="number" min="0" step=".01" value="0"></div>
+          <div class="field"><label>Monthly rent (₱)</label><input id="billRent" type="number" min="0" step=".01" value="0"></div>
+          <div class="field"><label>Other charges (₱)</label><input id="other" type="number" min="0" step=".01" value="0"></div>
+        </div>
+        <div class="field" style="margin-top:12px"><label>Remarks</label><input id="remarks" placeholder="Optional notes"></div>
+        <div class="panel" style="margin-top:15px;background:#f7faf8">
+          <h3 style="margin-top:0">Bill computation preview</h3>
+          <div id="preview" class="hint">Enter readings and rates to calculate the bill.</div>
+        </div>
+        <div class="actions"><button class="primary" type="submit">Save bill & generate receipt</button><button class="secondary" type="button" id="calcBtn">Recalculate</button></div>
+      </form>
+      <div id="billMessage"></div>
+    </div>
+  </section>
+
+  <section id="records" class="page hidden">
+    <div class="panel"><h2>Billing Records</h2><div class="actions no-print"><button class="secondary" id="refreshBtn">Refresh records</button></div><div id="billTable" class="hint">No billing records loaded.</div></div>
+    <div id="receiptArea" class="panel hidden" style="margin-top:16px"></div>
+  </section>
+
+  <section id="settings" class="page hidden">
+    <div class="panel">
+      <h2>Portal & Google Sheets Setup</h2>
+      <p class="hint">Enter your deployed Google Apps Script Web App URL and administrator PIN. These settings are kept in this browser only.</p>
+      <form id="settingsForm">
+        <div class="field"><label>Boarding house name</label><input id="houseName" value="Boarding House"></div>
+        <div class="field" style="margin-top:12px"><label>Google Apps Script Web App URL</label><input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
+        <div class="field" style="margin-top:12px"><label>Administrator PIN</label><input id="adminPin" type="password" placeholder="PIN configured in Apps Script"></div>
+        <div class="actions"><button class="primary" type="submit">Save settings & connect</button><button class="secondary" type="button" id="testBtn">Test connection</button></div>
+      </form>
+      <div id="settingsMessage"></div>
+      <p class="hint">Important: deploy the Apps Script as a Web App, execute as your Google account, and allow access to anyone. Use a strong PIN. GitHub Pages is public, so this is suitable for a small private operation but is not a substitute for a dedicated authenticated system.</p>
+    </div>
+  </section>
+</div>
+<footer>Boarding House Billing Portal · Google Sheets backend · Print receipts using your browser</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+let tenants=[], bills=[], latestReceipt=null;
+const money = n => '₱' + Number(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const num = id => Number($(id).value||0);
+const cfg = () => ({url:localStorage.getItem('bh_api_url')||'',pin:localStorage.getItem('bh_pin')||''});
+function msg(id,text,error=false){$(id).innerHTML=`<div class="status ${error?'error':''}">${text}</div>`}
+function tab(name){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('hidden',p.id!==name));document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));}
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>tab(b.dataset.tab)));
+async function api(action,data={}){
+ const c=cfg(); if(!c.url) throw new Error('Add your Apps Script Web App URL in Settings.');
+ const res=await fetch(c.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,pin:c.pin,...data})});
+ const out=await res.json(); if(!out.ok) throw new Error(out.error||'Request failed'); return out;
+}
+async function connect(){
+ try{const out=await api('getData');tenants=out.tenants||[];bills=out.bills||[];$('connection').textContent='Connected to Google Sheets';$('connection').style.background='#dff3e5';render();return true}
+ catch(e){$('connection').textContent='Not connected';msg('settingsMessage',e.message,true);return false}
+}
+function render(){
+ $('mTenants').textContent=tenants.filter(t=>t.status!=='Inactive').length;$('mBills').textContent=bills.length;
+ $('mBilled').textContent=money(bills.reduce((s,b)=>s+Number(b.total||0),0));
+ $('mPaid').textContent=money(bills.reduce((s,b)=>s+Number(b.amountPaid||0),0));
+ $('tenantTable').innerHTML=tenants.length?`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Room</th><th>Rent</th><th>Wi-Fi</th><th>Status</th><th>Action</th></tr></thead><tbody>${tenants.map(t=>`<tr><td>${esc(t.name)}</td><td>${esc(t.room)}</td><td>${money(t.rent)}</td><td>${money(t.wifiFee)}</td><td>${esc(t.status)}</td><td><button class="secondary" onclick="editTenant('${esc(t.id)}')">Edit</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No tenants yet. Add your first tenant above.</p>';
+ $('billTenant').innerHTML='<option value="">Select tenant</option>'+tenants.filter(t=>t.status!=='Inactive').map(t=>`<option value="${esc(t.id)}">${esc(t.name)} — Room ${esc(t.room)}</option>`).join('');
+ $('billTable').innerHTML=bills.length?`<div class="tablewrap"><table><thead><tr><th>Receipt #</th><th>Period</th><th>Tenant</th><th>Room</th><th>Total</th><th>Paid</th><th>Action</th></tr></thead><tbody>${bills.slice().reverse().map(b=>`<tr><td>${esc(b.receiptNo)}</td><td>${esc(b.period)}</td><td>${esc(b.tenantName)}</td><td>${esc(b.room)}</td><td class="amount">${money(b.total)}</td><td>${money(b.amountPaid)}</td><td><button class="secondary" onclick="showReceipt('${esc(b.id)}')">View receipt</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">No bills saved yet.</p>';
+ $('recent').innerHTML=bills.length?`<div class="tablewrap"><table><thead><tr><th>Receipt</th><th>Tenant</th><th>Period</th><th>Total</th></tr></thead><tbody>${bills.slice(-5).reverse().map(b=>`<tr><td>${esc(b.receiptNo)}</td><td>${esc(b.tenantName)}</td><td>${esc(b.period)}</td><td>${money(b.total)}</td></tr>`).join('')}</tbody></table></div>`:'No billing activity yet.';
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+$('tenantForm').addEventListener('submit',async e=>{e.preventDefault();try{const t={id:$('tenantId').value||'',name:$('tenantName').value.trim(),room:$('room').value.trim(),rent:num('rent'),wifiFee:num('wifiFee'),phone:$('phone').value,status:$('tenantStatus').value};await api('saveTenant',{tenant:t});$('tenantForm').reset();$('tenantId').value='';await connect();msg('settingsMessage','Tenant saved.')}catch(err){alert(err.message)}});
+window.editTenant=id=>{const t=tenants.find(x=>x.id===id);if(!t)return;$('tenantId').value=t.id;$('tenantName').value=t.name;$('room').value=t.room;$('rent').value=t.rent;$('wifiFee').value=t.wifiFee;$('phone').value=t.phone||'';$('tenantStatus').value=t.status;window.scrollTo({top:0,behavior:'smooth'});};
+$('clearTenant').onclick=()=>$('tenantForm').reset();
+$('billTenant').addEventListener('change',()=>{const t=tenants.find(x=>x.id===$('billTenant').value);if(t){$('billWifi').value=t.wifiFee||0;$('billRent').value=t.rent||0}});
+function computation(){
+ const wp=num('waterNow')-num('waterPrev'),ep=num('elecNow')-num('elecPrev');
+ if(wp<0||ep<0){$('preview').innerHTML='<span style="color:#b42318">Current meter reading cannot be lower than previous reading.</span>';return null}
+ const water=wp*num('waterRate'),electricity=ep*num('elecRate'),wifi=num('billWifi'),rent=num('billRent'),other=num('other'),total=water+electricity+wifi+rent+other;
+ $('preview').innerHTML=`<div class="rline"><span>Water (${wp.toFixed(2)} m³ × ${money(num('waterRate'))})</span><b>${money(water)}</b></div><div class="rline"><span>Electricity (${ep.toFixed(2)} kWh × ${money(num('elecRate'))})</span><b>${money(electricity)}</b></div><div class="rline"><span>Wi-Fi</span><b>${money(wifi)}</b></div><div class="rline"><span>Rent</span><b>${money(rent)}</b></div><div class="rline"><span>Other charges</span><b>${money(other)}</b></div><div class="rline total"><span>Total due</span><span>${money(total)}</span></div>`;
+ return {waterUsed:wp,electricityUsed:ep,water,electricity,wifi,rent,other,total};
+}
+$('calcBtn').onclick=computation;
+['waterPrev','waterNow','waterRate','elecPrev','elecNow','elecRate','billWifi','billRent','other'].forEach(id=>$(id).addEventListener('input',computation));
+$('billForm').addEventListener('submit',async e=>{
+ e.preventDefault();const c=computation();if(!c)return;if(!$('billTenant').value)return alert('Please select a tenant.');
+ const t=tenants.find(x=>x.id===$('billTenant').value);
+ const bill={...c,tenantId:t.id,tenantName:t.name,room:t.room,period:$('period').value,dueDate:$('dueDate').value,waterPrev:num('waterPrev'),waterNow:num('waterNow'),waterRate:num('waterRate'),elecPrev:num('elecPrev'),elecNow:num('elecNow'),elecRate:num('elecRate'),remarks:$('remarks').value,amountPaid:0};
+ try{const out=await api('saveBill',{bill});await connect();latestReceipt=out.bill;tab('records');showReceipt(out.bill.id);msg('billMessage','Bill saved successfully.');}catch(err){msg('billMessage',err.message,true)}
+});
+window.showReceipt=id=>{const b=bills.find(x=>x.id===id)||latestReceipt;if(!b)return;const house=localStorage.getItem('bh_house')||'Boarding House';
+ $('receiptArea').classList.remove('hidden');$('receiptArea').innerHTML=`<div class="receipt" id="printReceipt"><h2>${esc(house)}</h2><p>OFFICIAL BILLING RECEIPT</p><div class="rline"><span>Receipt No.</span><b>${esc(b.receiptNo)}</b></div><div class="rline"><span>Date issued</span><b>${esc(b.dateIssued||'')}</b></div><div class="rline"><span>Tenant</span><b>${esc(b.tenantName)}</b></div><div class="rline"><span>Room</span><b>${esc(b.room)}</b></div><div class="rline"><span>Billing period</span><b>${esc(b.period)}</b></div><div class="rline"><span>Due date</span><b>${esc(b.dueDate||'')}</b></div><h3>Utility details</h3><div class="rline"><span>Water: ${b.waterPrev} → ${b.waterNow} (${b.waterUsed} m³)</span><b>${money(b.water)}</b></div><div class="rline"><span>Electricity: ${b.elecPrev} → ${b.elecNow} (${b.electricityUsed} kWh)</span><b>${money(b.electricity)}</b></div><div class="rline"><span>Wi-Fi</span><b>${money(b.wifi)}</b></div><div class="rline"><span>Monthly rent</span><b>${money(b.rent)}</b></div><div class="rline"><span>Other charges</span><b>${money(b.other)}</b></div><div class="rline total"><span>TOTAL DUE</span><span>${money(b.total)}</span></div><div class="rline"><span>Amount paid</span><b>${money(b.amountPaid)}</b></div><div class="rline"><span>Balance</span><b>${money(Number(b.total)-Number(b.amountPaid))}</b></div><p style="margin-top:25px">Thank you for your payment.</p><p class="no-print"><button class="primary" onclick="window.print()">Print receipt</button></p></div>`;
+};
+$('settingsForm').addEventListener('submit',async e=>{e.preventDefault();localStorage.setItem('bh_house',$('houseName').value);localStorage.setItem('bh_api_url',$('apiUrl').value.trim());localStorage.setItem('bh_pin',$('adminPin').value);await connect()});
+$('testBtn').onclick=connect;$('refreshBtn').onclick=connect;
+$('houseName').value=localStorage.getItem('bh_house')||'Boarding House';$('apiUrl').value=localStorage.getItem('bh_api_url')||'';$('adminPin').value=localStorage.getItem('bh_pin')||'';
+if(cfg().url)connect();
+</script>
+</body></html>
